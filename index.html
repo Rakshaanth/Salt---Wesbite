@@ -239,8 +239,44 @@
             box-shadow: 0 0 0 4px rgba(191, 211, 186, 0.2);
         }
 
-        input[type="email"]::placeholder {
+        input[type="email"]::placeholder,
+        input.waitlist-email::placeholder {
             color: rgba(191, 211, 186, 0.4);
+        }
+
+        .waitlist-box input.waitlist-email {
+            width: 100%;
+            padding: 16px 20px;
+            font-family: 'Space Mono', monospace;
+            font-size: 16px;
+            background: var(--black);
+            border: 4px solid var(--campus-teal);
+            color: var(--campus-sage);
+            outline: none;
+            margin-bottom: 16px;
+        }
+        .waitlist-box input.waitlist-email:focus {
+            border-color: var(--campus-sage);
+            box-shadow: 0 0 0 4px rgba(191, 211, 186, 0.2);
+        }
+
+        .form-feedback {
+            font-size: 14px;
+            margin-top: 12px;
+            padding: 12px;
+            display: none;
+        }
+        .form-feedback.success {
+            display: block;
+            color: var(--campus-sage);
+            background: rgba(191, 211, 186, 0.15);
+            border: 2px solid var(--campus-sage);
+        }
+        .form-feedback.error {
+            display: block;
+            color: var(--campus-rust);
+            background: rgba(216, 67, 21, 0.15);
+            border: 2px solid var(--campus-rust);
         }
 
         .btn {
@@ -520,17 +556,21 @@
                     get the most out of their meal plans.
                 </p>
 
-                <!-- Waitlist Form -->
+                <!-- Waitlist Form (Formspree, .edu only, no redirect) -->
                 <div class="waitlist-box">
-                    <form id="waitlistForm">
+                    <form id="waitlistForm" action="https://formspree.io/f/xgologyp" method="POST">
                         <label class="form-label">JOIN THE WAITLIST</label>
                         <input 
-                            type="email" 
+                            type="text" 
                             id="emailInput" 
-                            placeholder="email@college.edu"
+                            name="email"
+                            class="waitlist-email"
+                            placeholder="name@university.edu"
                             required
+                            autocomplete="email"
                         >
-                        <button type="submit" class="btn">GET EARLY ACCESS</button>
+                        <div id="formFeedback" class="form-feedback" role="status"></div>
+                        <button type="submit" class="btn" id="submitBtn">GET EARLY ACCESS</button>
                     </form>
                 </div>
             </div>
@@ -619,12 +659,55 @@
     </footer>
 
     <script>
-        // Form submission
-        document.getElementById('waitlistForm').addEventListener('submit', function(e) {
+
+        function isValidEduEmail(email) {
+            const trimmed = (email || '').trim().toLowerCase();
+            return /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.edu$/.test(trimmed);
+        }
+
+        // Formspree submit — no redirect, message shown in form
+        document.getElementById('waitlistForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            const email = document.getElementById('emailInput').value;
-            alert('Thanks for joining! We\'ll email you at ' + email + ' when we launch on your campus.');
-            document.getElementById('emailInput').value = '';
+            var input = document.getElementById('emailInput');
+            var feedback = document.getElementById('formFeedback');
+            var submitBtn = document.getElementById('submitBtn');
+            var email = (input.value || '').trim();
+
+            feedback.className = 'form-feedback';
+            feedback.textContent = '';
+
+            if (!isValidEduEmail(email)) {
+                feedback.classList.add('error');
+                feedback.textContent = 'Please use your university email (e.g. name@university.edu)';
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'SENDING...';
+
+            try {
+                var res = await fetch(this.action, {
+                    method: 'POST',
+                    body: new FormData(this),
+                    headers: { Accept: 'application/json' }
+                });
+                var data = await res.json();
+
+                if (data.ok) {
+                    feedback.classList.add('success');
+                    feedback.textContent = "You're on the list! We'll email you when we launch on your campus.";
+                    input.value = '';
+                } else {
+                    feedback.classList.add('error');
+                    feedback.textContent = data.error || 'Something went wrong. Try again.';
+                }
+            } catch (err) {
+                feedback.classList.add('error');
+                feedback.textContent = 'Network error. Please check your connection and try again.';
+            }
+
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'GET EARLY ACCESS';
         });
 
         // Cursor trail effect
