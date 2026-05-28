@@ -614,6 +614,24 @@
                         <div id="formFeedback" class="form-feedback" role="status"></div>
                         <button type="submit" class="btn" id="submitBtn">GET EARLY ACCESS</button>
                     </form>
+
+                    <!-- Referral Form (hidden until waitlist submitted) -->
+                    <form id="referralForm" action="https://formspree.io/f/mdajbzbk" method="POST" style="display: none;">
+                        <label class="form-label" style="margin-top: 24px;">WHO REFERRED YOU?</label>
+                        <input 
+                            type="text" 
+                            id="referralEmailInput" 
+                            name="email"
+                            class="waitlist-email"
+                            placeholder="referrer@university.edu"
+                            autocomplete="email"
+                        >
+                        <div id="referralFeedback" class="form-feedback" role="status"></div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                            <button type="submit" class="btn" id="submitReferralBtn" style="margin-bottom: 0;">SUBMIT</button>
+                            <button type="button" class="btn" id="skipReferralBtn" style="margin-bottom: 0; background: var(--campus-teal); box-shadow: 8px 8px 0 var(--campus-rust);">SKIP</button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
@@ -707,6 +725,13 @@
             return /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.edu$/.test(trimmed);
         }
 
+        // Show referral form after waitlist submission
+        function showReferralForm() {
+            document.getElementById('waitlistForm').style.display = 'none';
+            document.getElementById('referralForm').style.display = 'block';
+            document.getElementById('referralEmailInput').focus();
+        }
+
         // Formspree submit — no redirect, message shown in form
         document.getElementById('waitlistForm').addEventListener('submit', async function(e) {
             e.preventDefault();
@@ -737,8 +762,9 @@
 
                 if (data.ok) {
                     feedback.classList.add('success');
-                    feedback.textContent = "You're on the list! We'll email you when we launch on your campus.";
+                    feedback.textContent = "You're on the list! Now tell us who referred you.";
                     input.value = '';
+                    setTimeout(showReferralForm, 1000);
                 } else {
                     feedback.classList.add('error');
                     feedback.textContent = data.error || 'Something went wrong. Try again.';
@@ -750,6 +776,63 @@
 
             submitBtn.disabled = false;
             submitBtn.textContent = 'GET EARLY ACCESS';
+        });
+
+        // Referral form submit
+        document.getElementById('referralForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            var input = document.getElementById('referralEmailInput');
+            var feedback = document.getElementById('referralFeedback');
+            var submitBtn = document.getElementById('submitReferralBtn');
+            var email = (input.value || '').trim();
+
+            feedback.className = 'form-feedback';
+            feedback.textContent = '';
+
+            if (!isValidEduEmail(email)) {
+                feedback.classList.add('error');
+                feedback.textContent = 'Please use a university email (e.g. name@university.edu)';
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'SENDING...';
+
+            try {
+                var res = await fetch(this.action, {
+                    method: 'POST',
+                    body: new FormData(this),
+                    headers: { Accept: 'application/json' }
+                });
+                var data = await res.json();
+
+                if (data.ok) {
+                    feedback.classList.add('success');
+                    feedback.textContent = "Thanks! We've recorded who referred you. Welcome to Salt!";
+                    input.value = '';
+                } else {
+                    feedback.classList.add('error');
+                    feedback.textContent = data.error || 'Something went wrong. Try again.';
+                }
+            } catch (err) {
+                feedback.classList.add('error');
+                feedback.textContent = 'Network error. Please check your connection and try again.';
+            }
+
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'SUBMIT';
+        });
+
+        // Skip referral button
+        document.getElementById('skipReferralBtn').addEventListener('click', function(e) {
+            e.preventDefault();
+            var feedback = document.getElementById('referralFeedback');
+            feedback.className = 'form-feedback success';
+            feedback.textContent = "No problem! You're all set. Welcome to Salt!";
+            setTimeout(function() {
+                document.getElementById('referralForm').style.display = 'none';
+                document.getElementById('waitlistForm').style.display = 'block';
+            }, 2000);
         });
 
         // Cursor trail effect
